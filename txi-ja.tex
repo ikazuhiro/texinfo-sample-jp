@@ -26,7 +26,7 @@
 \gdef\putwordChapter{章}
 \gdef\putworderror{エラー}
 \gdef\putwordfile{ファイル}
-\gdef\putwordin{in}
+\gdef\putwordin{の}
 \gdef\putwordIndexIsEmpty{（インデックスが空です）}
 \gdef\putwordIndexNonexistent{（インデックスがありません）}
 \gdef\putwordInfo{Info}
@@ -38,8 +38,8 @@
 \gdef\putwordpage{ページ}
 \gdef\putwordsection{節}
 \gdef\putwordSection{節}
-\gdef\putwordsee{see}
-\gdef\putwordSee{See}
+\gdef\putwordsee{を参照}
+\gdef\putwordSee{を参照してください}
 \gdef\putwordShortTOC{簡単な目次}
 \gdef\putwordTOC{目次}
 %
@@ -460,3 +460,321 @@
 \globaldefs = 0
 
 \fi % \iftxinativeunicodecapable
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 日本語表記の改善
+%  1. ヘッドの章の表記
+%  2. See 訳語に合わせて動詞の後置
+%  3. クロスレファレンスの表記
+%  4. @dfn の表記
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  1. ヘッドの章の表記
+\gdef\Ynumbered{%
+  \ifnum\secno=0
+    第\the\chapno\putwordChapter%
+  \else \ifnum\subsecno=0
+    \the\chapno.\the\secno\putwordSection%
+  \else \ifnum\subsubsecno=0
+    \the\chapno.\the\secno.\the\subsecno\putwordSection%
+  \else
+    \the\chapno.\the\secno.\the\subsecno.\the\subsubsecno\putwordSection%
+  \fi\fi\fi
+}
+
+\gdef\Yappendix{%
+  \ifnum\secno=0
+     \putwordAppendix@tie @char\the\appendixno{}%
+  \else \ifnum\subsecno=0
+     @char\the\appendixno.\the\secno\putwordSection%
+  \else \ifnum\subsubsecno=0
+     @char\the\appendixno.\the\secno.\the\subsecno\putwordSection%
+  \else
+     @char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno\putwordSection%
+  \fi\fi\fi
+}
+
+\gdef\chapmacro#1#2#3{%
+  \expandafter\ifx\thisenv\titlepage\else
+    \checkenv{}% chapters, etc., should not start inside an environment.
+  \fi
+  % FIXME: \chapmacro is currently called from inside \titlepage when
+  % \setcontentsaftertitlepage to print the "Table of Contents" heading, but
+  % this should probably be done by \sectionheading with an option to print
+  % in chapter size.
+  %
+  % Insert the first mark before the heading break (see notes for \domark).
+  \let\prevchapterdefs=\lastchapterdefs
+  \let\prevsectiondefs=\lastsectiondefs
+  \gdef\lastsectiondefs{\gdef\thissectionname{}\gdef\thissectionnum{}%
+                        \gdef\thissection{}}%
+  %
+  \def\temptype{#2}%
+  \ifx\temptype\Ynothingkeyword
+    \gdef\lastchapterdefs{\gdef\thischaptername{#1}\gdef\thischapternum{}%
+                          \gdef\thischapter{\thischaptername}}%
+  \else\ifx\temptype\Yomitfromtockeyword
+    \gdef\lastchapterdefs{\gdef\thischaptername{#1}\gdef\thischapternum{}%
+                          \gdef\thischapter{}}%
+  \else\ifx\temptype\Yappendixkeyword
+    \toks0={#1}%
+    \xdef\lastchapterdefs{%
+      \gdef\noexpand\thischaptername{\the\toks0}%
+      \gdef\noexpand\thischapternum{\appendixletter}%
+      % \noexpand\putwordAppendix avoids expanding indigestible
+      % commands in some of the translations.
+      \gdef\noexpand\thischapter{\noexpand\putwordAppendix{}
+                                 \noexpand\thischapternum:
+                                 \noexpand\thischaptername}%
+    }%
+  \else
+    \toks0={#1}%
+    \xdef\lastchapterdefs{%
+      \gdef\noexpand\thischaptername{\the\toks0}%
+      \gdef\noexpand\thischapternum{\the\chapno}%
+      % \noexpand\putwordChapter avoids expanding indigestible
+      % commands in some of the translations.
+      \gdef\noexpand\thischapter{第\noexpand\thischapternum%
+                                 \noexpand\putwordChapter{}\space%
+ 				 \noexpand\thischaptername}%
+    }%
+  \fi\fi\fi
+  %
+  % Output the mark.  Pass it through \safewhatsit, to take care of
+  % the preceding space.
+  \safewhatsit\domark
+  %
+  % Insert the chapter heading break.
+  \pchapsepmacro
+  %
+  % Now the second mark, after the heading break.  No break points
+  % between here and the heading.
+  \let\prevchapterdefs=\lastchapterdefs
+  \let\prevsectiondefs=\lastsectiondefs
+  \domark
+  %
+  {%
+    \chapfonts \rmisbold
+    \let\footnote=\errfootnoteheading % give better error message
+    %
+    % Have to define \lastsection before calling \donoderef, because the
+    % xref code eventually uses it.  On the other hand, it has to be called
+    % after \pchapsepmacro, or the headline will change too soon.
+    \gdef\lastsection{#1}%
+    %
+    % Only insert the separating space if we have a chapter/appendix
+    % number, and don't print the unnumbered ``number''.
+    \ifx\temptype\Ynothingkeyword
+      \setbox0 = \hbox{}%
+      \def\toctype{unnchap}%
+    \else\ifx\temptype\Yomitfromtockeyword
+      \setbox0 = \hbox{}% contents like unnumbered, but no toc entry
+      \def\toctype{omit}%
+    \else\ifx\temptype\Yappendixkeyword
+      \setbox0 = \hbox{\putwordAppendix{} #3\enspace}%
+      \def\toctype{app}%
+    \else
+      \setbox0 = \hbox{#3\enspace}%
+      \def\toctype{numchap}%
+    \fi\fi\fi
+    %
+    % Write the toc entry for this chapter.  Must come before the
+    % \donoderef, because we include the current node name in the toc
+    % entry, and \donoderef resets it to empty.
+    \writetocentry{\toctype}{#1}{#3}%
+    %
+    % For pdftex, we have to write out the node definition (aka, make
+    % the pdfdest) after any page break, but before the actual text has
+    % been typeset.  If the destination for the pdf outline is after the
+    % text, then jumping from the outline may wind up with the text not
+    % being visible, for instance under high magnification.
+    \donoderef{#2}%
+    %
+    % Typeset the actual heading.
+    \nobreak % Avoid page breaks at the interline glue.
+    \vbox{\raggedtitlesettings \hangindent=\wd0 \centerparametersmaybe
+          \unhbox0 #1\par}%
+  }%
+  \nobreak\bigskip % no page break after a chapter title
+  \nobreak
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  2. See 訳語に合わせて動詞の後置
+
+\global\def\inforefzzz #1,#2,#3,#4**{\putwordInfo{}\putwordfile{} \file{\ignorespaces #3{}},  ノード\samp{\ignorespaces#1{}}\putwordSee{}}
+
+\global\def\pxref#1{\xrefX[#1,,,,,,,]\putwordsee{}}
+\global\def\xref#1{\xrefX[#1,,,,,,,]\putwordSee{}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  3. クロスレファレンスの表記
+
+\gdef\xrefprintnodename#1#2#3{「#1」}
+\gdef\crossmanualxref#1{%
+  \setbox\toprefbox = \hbox{Top\kern7sp}%
+  \setbox2 = \hbox{\ignorespaces \printedrefname \unskip \kern7sp}%
+  #1%
+  \ifdim \wd2 > 7sp  % nonempty?
+    \ifdim \wd2 = \wd\toprefbox \else  % same as Top?
+      \space\putwordin\space ``\printedrefname'' \putwordSection{}\space
+    \fi%
+  \fi%
+}
+\gdef\xrefX[#1,#2,#3,#4,#5,#6]{\begingroup
+  \unsepspaces
+  %
+  % Get args without leading/trailing spaces.
+  \def\printedrefname{\ignorespaces #3}%
+  \setbox\printedrefnamebox = \hbox{\printedrefname\unskip}%
+  %
+  \def\infofilename{\ignorespaces #4}%
+  \setbox\infofilenamebox = \hbox{\infofilename\unskip}%
+  %
+  \def\printedmanual{\ignorespaces #5}%
+  \setbox\printedmanualbox  = \hbox{\printedmanual\unskip}%
+  %
+  % If the printed reference name (arg #3) was not explicitly given in
+  % the @xref, figure out what we want to use.
+  \ifdim \wd\printedrefnamebox = 0pt
+    % No printed node name was explicitly given.
+    \expandafter\ifx\csname SETxref-automatic-section-title\endcsname \relax
+      % Not auto section-title: use node name inside the square brackets.
+      \def\printedrefname{\ignorespaces #1}%
+    \else
+      % Auto section-title: use chapter/section title inside
+      % the square brackets if we have it.
+      \ifdim \wd\printedmanualbox > 0pt
+        % It is in another manual, so we don't have it; use node name.
+        \def\printedrefname{\ignorespaces #1}%
+      \else
+        \ifhavexrefs
+          % We (should) know the real title if we have the xref values.
+          \def\printedrefname{\refx{#1-title}{}}%
+        \else
+          % Otherwise just copy the Info node name.
+          \def\printedrefname{\ignorespaces #1}%
+        \fi%
+      \fi
+    \fi
+  \fi
+  %
+  % Make link in pdf output.
+  \ifpdf
+    {\indexnofonts
+     \turnoffactive
+     \makevalueexpandable
+     % This expands tokens, so do it after making catcode changes, so _
+     % etc. don't get their TeX definitions.  This ignores all spaces in
+     % #4, including (wrongly) those in the middle of the filename.
+     \getfilename{#4}%
+     %
+     % This (wrongly) does not take account of leading or trailing
+     % spaces in #1, which should be ignored.
+     \edef\pdfxrefdest{#1}%
+     \ifx\pdfxrefdest\empty
+       \def\pdfxrefdest{Top}% no empty targets
+     \else
+       \txiescapepdf\pdfxrefdest  % escape PDF special chars
+     \fi
+     %
+     \leavevmode
+     \startlink attr{/Border [0 0 0]}%
+     \ifnum\filenamelength>0
+       goto file{\the\filename.pdf} name{\pdfxrefdest}%
+     \else
+       goto name{\pdfmkpgn{\pdfxrefdest}}%
+     \fi
+    }%
+    \setcolor{\linkcolor}%
+  \fi
+  {%
+    % Have to otherify everything special to allow the \csname to
+    % include an _ in the xref name, etc.
+    \indexnofonts
+    \turnoffactive
+    \expandafter\global\expandafter\let\expandafter\Xthisreftitle
+      \csname XR#1-title\endcsname
+  }%
+  %
+  % Float references are printed completely differently: "Figure 1.2"
+  % instead of "[somenode], p.3".  \iffloat distinguishes them by
+  % \Xthisreftitle being set to a magic string.
+  \iffloat\Xthisreftitle
+    %
+    % If the user also gave the printed manual name (fifth arg), append
+    % "in MANUALNAME".
+    \ifdim \wd\printedmanualbox > 0pt
+      \cite{\printedmanual} \space \putwordin{}%
+    \fi
+    % If the user specified the print name (third arg) to the ref,
+    % print it instead of our usual "Figure 1.2".
+    \ifdim\wd\printedrefnamebox = 0pt
+      \refx{#1-snt}{}%
+    \else
+      \printedrefname
+    \fi
+  \else
+    % node/anchor (non-float) references.
+    % 
+    % If we use \unhbox to print the node names, TeX does not insert
+    % empty discretionaries after hyphens, which means that it will not
+    % find a line break at a hyphen in a node names.  Since some manuals
+    % are best written with fairly long node names, containing hyphens,
+    % this is a loss.  Therefore, we give the text of the node name
+    % again, so it is as if TeX is seeing it for the first time.
+    % 
+    \ifdim \wd\printedmanualbox > 0pt
+      % Cross-manual reference with a printed manual name.
+      % 
+      \crossmanualxref{\cite{\printedmanual\unskip}}%
+    %
+    \else\ifdim \wd\infofilenamebox > 0pt
+      % Cross-manual reference with only an info filename (arg 4), no
+      % printed manual name (arg 5).  This is essentially the same as
+      % the case above; we output the filename, since we have nothing else.
+      % 
+      \crossmanualxref{\code{\infofilename\unskip}}%
+    %
+    \else
+      % Reference within this manual.
+      %
+      % _ (for example) has to be the character _ for the purposes of the
+      % control sequence corresponding to the node, but it has to expand
+      % into the usual \leavevmode...\vrule stuff for purposes of
+      % printing. So we \turnoffactive for the \refx-snt, back on for the
+      % printing, back off for the \refx-pg.
+      {\turnoffactive
+       % Only output a following space if the -snt ref is nonempty; for
+       % @unnumbered and @anchor, it won't be.
+       \setbox2 = \hbox{\ignorespaces \refx{#1-snt}{}}%
+       \ifdim \wd2 > 0pt \refx{#1-snt}\space\fi
+      }%
+      % output the `[mynode]' via the macro below so it can be overridden.
+      \xrefprintnodename\printedrefname
+      %
+      % But we always want a comma and a space:
+      ,\space
+      %
+      % output the `page 3'.
+      \turnoffactive (\refx{#1-pg}{}\tie\putwordpage)%
+      % Add a , if xref followed by a space
+      \if\space\noexpand\tokenafterxref ,%
+      \else\ifx\	\tokenafterxref ,% @TAB
+      \else\ifx\*\tokenafterxref ,%   @*
+      \else\ifx\ \tokenafterxref ,%   @SPACE
+      \else\ifx\
+                \tokenafterxref ,%    @NL
+      \else\ifx\tie\tokenafterxref ,% @tie
+      \fi\fi\fi\fi\fi\fi
+    \fi\fi
+  \fi
+  \endlink
+\endgroup}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  4. @dfn の表記
+
+\gdef\doublebracket#1{『#1』}
+\global\let\dfn=\doublebracket
