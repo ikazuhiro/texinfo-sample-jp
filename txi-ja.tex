@@ -605,8 +605,8 @@
 
 \global\def\inforefzzz #1,#2,#3,#4**{\putwordInfo{}\putwordfile{} \file{\ignorespaces #3{}},  ノード\samp{\ignorespaces#1{}}\putwordSee{}}
 
-\global\def\pxref#1{\xrefX[#1,,,,,,,]\putwordsee{}}
-\global\def\xref#1{\xrefX[#1,,,,,,,]\putwordSee{}}
+\gdef\pxref#1{\xrefXX{#1}\putwordsee{}}
+\gdef\xref#1{\xrefXX{#1}\putwordSee{}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  3. クロスレファレンスの表記
